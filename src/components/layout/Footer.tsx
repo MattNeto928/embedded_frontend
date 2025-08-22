@@ -56,9 +56,6 @@ const Footer: React.FC = () => {
             <p className="text-secondary-300">
               For technical support or questions about the labs, please contact your instructor or TA.
             </p>
-            <p className="text-secondary-300 mt-2">
-              Office Hours: Monday-Friday, 10:00 AM - 4:00 PM
-            </p>
           </div>
         </div>
       </div>
