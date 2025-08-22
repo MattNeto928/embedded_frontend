@@ -10,14 +10,19 @@ interface LabCardProps {
 }
 
 const LabCard: React.FC<LabCardProps> = ({ lab, status, isStaff = false, viewAsStudent = false }) => {
-  // Check if the lab is locked based on status
-  const isLockedStatus = !status || status.status === 'locked';
+  // Check if the lab is locked based on lab.locked or status
+  const isLockedByProperty = lab.locked === true;
+  const isLockedByStatus = !status || status.status === 'locked';
+  const isLockedStatus = isLockedByProperty || isLockedByStatus;
+  
   // For staff not in student view, they can access labs even if locked
   const isLocked = isStaff && !viewAsStudent ? false : isLockedStatus;
   const isCompleted = status?.completed;
   const hasSubmission = status?.submissionStatus;
   // Show lock indicator for staff even if they can access it
   const showLockIndicator = isLockedStatus;
+  
+  console.log(`Lab ${lab.labId} - locked property: ${lab.locked}, status: ${status?.status}, isLocked: ${isLocked}`);
 
   const getStatusBadge = () => {
     if (isLocked) {
@@ -87,9 +92,14 @@ const LabCard: React.FC<LabCardProps> = ({ lab, status, isStaff = false, viewAsS
       
       <div className="flex justify-between items-center mt-auto">
         {isLocked ? (
-          <button disabled className="btn-secondary opacity-50 cursor-not-allowed whitespace-nowrap">
-            Locked
-          </button>
+          <div className="flex flex-col">
+            <button disabled className="btn-secondary opacity-50 cursor-not-allowed whitespace-nowrap">
+              Locked
+            </button>
+            <span className="text-xs text-red-600 mt-1">
+              Wait for instructor to unlock
+            </span>
+          </div>
         ) : (
           <Link to={`/labs/${lab.labId}`} className="btn-primary whitespace-nowrap">
             {isStaff && !viewAsStudent && showLockIndicator ? 'View Locked Lab' : (isCompleted ? 'Review Lab' : 'Continue Lab')}

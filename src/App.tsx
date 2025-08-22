@@ -1,9 +1,10 @@
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
 import { SignInForm, SignUpForm } from './components/auth/AuthForms';
+import { API_ENDPOINT } from './aws-config';
 
 // Import pages
 import HomePage from './pages/HomePage';
@@ -65,9 +66,9 @@ const AppRoutes = () => {
         path="/labs" 
         element={<ProtectedRoute element={<LabsPage />} />} 
       />
-      <Route 
-        path="/labs/:labId" 
-        element={<ProtectedRoute element={<LabDetailPage />} />} 
+      <Route
+        path="/labs/:labId"
+        element={<ProtectedRoute element={<LabAccessCheck />} />}
       />
       <Route
         path="/admin"
@@ -76,6 +77,60 @@ const AppRoutes = () => {
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
   );
+};
+
+// Component to check if a student can access a lab
+const LabAccessCheck: React.FC = () => {
+  const { labId } = useParams<{ labId: string }>();
+  const { authState } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
+  
+  useEffect(() => {
+    // Only check access for students
+    if (authState.user?.role === 'staff') {
+      setIsChecking(false);
+      return;
+    }
+    
+    const checkLabAccess = async () => {
+      try {
+        const idToken = localStorage.getItem('idToken');
+        if (!idToken) {
+          throw new Error('No authentication token found');
+        }
+        
+        // Make a HEAD request to check if the lab is accessible
+        const response = await fetch(`${API_ENDPOINT}labs/${labId}`, {
+          method: 'HEAD',
+          headers: {
+            'Authorization': `Bearer ${idToken}`
+          }
+        });
+        
+        if (!response.ok && response.status === 403) {
+          // Lab is locked, store error message and redirect
+          sessionStorage.setItem('labAccessError',
+            'This lab is currently locked. Please wait for your instructor to unlock it.');
+          window.location.href = '/labs'; // Force a full redirect
+          return;
+        }
+        
+        setIsChecking(false);
+      } catch (error) {
+        console.error('Error checking lab access:', error);
+        setIsChecking(false);
+      }
+    };
+    
+    checkLabAccess();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [labId, authState.user?.role]);
+  
+  if (isChecking) {
+    return <div className="p-8 text-center">Checking lab access...</div>;
+  }
+  
+  return <LabDetailPage />;
 };
 
 const App: React.FC = () => {

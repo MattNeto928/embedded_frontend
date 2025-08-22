@@ -30,6 +30,14 @@ const LabsPage: React.FC = () => {
 
   useEffect(() => {
     fetchLabs();
+    
+    // Check for lab access error messages from redirects
+    const labAccessError = sessionStorage.getItem('labAccessError');
+    if (labAccessError) {
+      setError(labAccessError);
+      // Clear the error message from session storage
+      sessionStorage.removeItem('labAccessError');
+    }
   }, [isStaff, viewAsStudent]);
 
   const fetchLabs = async () => {
@@ -234,8 +242,14 @@ const LabsPage: React.FC = () => {
       <h1 className="text-3xl font-bold mb-6">Labs</h1>
       
       {error && (
-        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-6 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
+          <div>
+            <p className="font-bold">Access Restricted</p>
+            <p>{error}</p>
+          </div>
         </div>
       )}
       
