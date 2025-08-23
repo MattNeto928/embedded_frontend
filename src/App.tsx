@@ -10,6 +10,7 @@ import { API_ENDPOINT } from './aws-config';
 import HomePage from './pages/HomePage';
 import LabsPage from './pages/LabsPage';
 import LabDetailPage from './pages/LabDetailPage';
+import LabContentEditorPage from './pages/LabContentEditorPage';
 
 // Protected route component
 interface ProtectedRouteProps {
@@ -69,6 +70,10 @@ const AppRoutes = () => {
       <Route
         path="/labs/:labId"
         element={<ProtectedRoute element={<LabAccessCheck />} />}
+      />
+      <Route
+        path="/labs/:labId/edit"
+        element={<ProtectedRoute element={<LabContentEditorPage />} allowedRoles={['staff']} />}
       />
       <Route
         path="/admin"
