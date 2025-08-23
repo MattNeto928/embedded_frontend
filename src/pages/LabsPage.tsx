@@ -3,12 +3,22 @@ import { useAuth } from '../contexts/AuthContext';
 import LabCard from '../components/labs/LabCard';
 import { Lab, LabStatus } from '../types';
 import { API_ENDPOINT } from '../aws-config';
+import ConfirmationPopup from '../components/ConfirmationPopup';
 
 const LabsPage: React.FC = () => {
   const { authState, viewAsStudent } = useAuth();
   const [labs, setLabs] = useState<(Lab & Partial<LabStatus>)[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // State for confirmation popup
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationAction, setConfirmationAction] = useState<'lock' | 'unlock'>('unlock');
+  const [selectedLabId, setSelectedLabId] = useState<string | null>(null);
+  
+  // State for success popup
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   const isStaff = authState.user?.role === 'staff';
   
@@ -108,6 +118,35 @@ const LabsPage: React.FC = () => {
     }
   };
 
+  const showUnlockConfirmation = (labId: string) => {
+    setSelectedLabId(labId);
+    setConfirmationAction('unlock');
+    setShowConfirmation(true);
+  };
+  
+  const showLockConfirmation = (labId: string) => {
+    setSelectedLabId(labId);
+    setConfirmationAction('lock');
+    setShowConfirmation(true);
+  };
+  
+  const handleConfirmAction = async () => {
+    if (!selectedLabId) return;
+    
+    if (confirmationAction === 'unlock') {
+      await handleUnlockLabForAll(selectedLabId);
+    } else {
+      await handleLockLabForAll(selectedLabId);
+    }
+    
+    setShowConfirmation(false);
+  };
+  
+  const handleCancelConfirmation = () => {
+    setShowConfirmation(false);
+    setSelectedLabId(null);
+  };
+
   const handleUnlockLabForAll = async (labId: string) => {
     try {
       setLoading(true);
@@ -155,7 +194,8 @@ const LabsPage: React.FC = () => {
       );
       
       // Show success message
-      alert('Lab unlocked successfully!');
+      setSuccessMessage('Lab unlocked successfully!');
+      setShowSuccess(true);
       
       // Refresh labs after unlocking to get the updated status from the server
       await fetchLabs();
@@ -214,7 +254,8 @@ const LabsPage: React.FC = () => {
       );
       
       // Show success message
-      alert('Lab locked successfully!');
+      setSuccessMessage('Lab locked successfully!');
+      setShowSuccess(true);
       
       // Refresh labs after locking to get the updated status from the server
       await fetchLabs();
@@ -253,29 +294,6 @@ const LabsPage: React.FC = () => {
         </div>
       )}
       
-      {isStaff && !viewAsStudent && (
-        <div className="bg-gray-100 p-4 rounded-lg mb-6 shadow-md border border-gray-300">
-          <div className="flex justify-between items-center mb-3">
-            <h2 className="text-xl font-bold text-primary-700">Staff Controls</h2>
-          </div>
-          
-          <div className="flex flex-col md:flex-row gap-4 items-end">
-            <div className="flex-grow">
-              <p className="text-sm text-gray-700 mb-1">
-                As a staff member, you can unlock labs for all students. Click the "Unlock Lab" button on any locked lab to give all students access.
-              </p>
-            </div>
-            <div>
-              <button
-                className="bg-blue-500 hover:bg-blue-600 text-white font-medium py-2 px-4 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-                onClick={() => fetchLabs()}
-              >
-                Refresh Labs
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {processedLabs.map((lab) => (
@@ -294,7 +312,7 @@ const LabsPage: React.FC = () => {
                 {lab.status === 'locked' ? (
                   <button
                     className="bg-green-500 hover:bg-green-600 text-white text-sm font-bold py-2 px-3 rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 whitespace-nowrap flex items-center"
-                    onClick={() => handleUnlockLabForAll(lab.labId)}
+                    onClick={() => showUnlockConfirmation(lab.labId)}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
@@ -304,7 +322,7 @@ const LabsPage: React.FC = () => {
                 ) : (
                   <button
                     className="bg-red-500 hover:bg-red-600 text-white text-sm font-bold py-2 px-3 rounded-md shadow-md focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 whitespace-nowrap flex items-center"
-                    onClick={() => handleLockLabForAll(lab.labId)}
+                    onClick={() => showLockConfirmation(lab.labId)}
                   >
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -323,6 +341,33 @@ const LabsPage: React.FC = () => {
           <p className="text-gray-500">No labs available.</p>
         </div>
       )}
+      
+      {/* Confirmation Popup */}
+      <ConfirmationPopup
+        isOpen={showConfirmation}
+        title={confirmationAction === 'unlock' ? 'Unlock Lab for All Students' : 'Lock Lab for All Students'}
+        message={
+          confirmationAction === 'unlock'
+            ? 'This action will unlock the lab for ALL students in the class. Are you sure you want to proceed?'
+            : 'This action will lock the lab for ALL students in the class. Are you sure you want to proceed?'
+        }
+        confirmText={confirmationAction === 'unlock' ? 'Unlock Lab' : 'Lock Lab'}
+        confirmButtonColor={confirmationAction === 'unlock' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}
+        onConfirm={handleConfirmAction}
+        onCancel={handleCancelConfirmation}
+      />
+      
+      {/* Success Popup */}
+      <ConfirmationPopup
+        isOpen={showSuccess}
+        title="Success"
+        message={successMessage}
+        confirmText="OK"
+        confirmButtonColor="bg-green-500 hover:bg-green-600"
+        onConfirm={() => setShowSuccess(false)}
+        onCancel={() => setShowSuccess(false)}
+        isSuccess={true}
+      />
     </div>
   );
 };
