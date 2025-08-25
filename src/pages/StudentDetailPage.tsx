@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { API_ENDPOINT } from '../aws-config';
-import { StudentDetail, CheckoffUpdate } from '../types';
+import { StudentDetail, CheckoffUpdate, PartSubmission } from '../types';
 
 const StudentDetailPage: React.FC = () => {
   const { studentName } = useParams<{ studentName: string }>();
@@ -12,12 +12,54 @@ const StudentDetailPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'overview' | 'checkoffs'>('overview');
   const [editingGrade, setEditingGrade] = useState<{ labId: string, grade: number | null }>({ labId: '', grade: null });
+  const [partSubmissions, setPartSubmissions] = useState<Record<string, PartSubmission>>({});
 
   useEffect(() => {
     if (studentName) {
       fetchStudentDetails(studentName);
     }
+    // Also fetch part submissions if we have a student name
+    if (studentName) {
+      fetchPartSubmissions(studentName);
+    }
   }, [studentName]);
+  
+  const fetchPartSubmissions = async (name: string) => {
+    try {
+      const idToken = localStorage.getItem('idToken');
+      
+      if (!idToken) {
+        throw new Error('No authentication token found');
+      }
+      
+      // Fix the URL by ensuring no double slashes
+      const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/part-submissions?studentId=${encodeURIComponent(name)}`;
+      
+      const response = await fetch(apiUrl, {
+        headers: {
+          'Authorization': `Bearer ${idToken}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch part submissions');
+      }
+      
+      const data = await response.json();
+      
+      // Convert array to record keyed by partId for easy lookup
+      const submissionsRecord: Record<string, PartSubmission> = {};
+      data.forEach((submission: PartSubmission) => {
+        const key = `${submission.labId}#${submission.partId}`;
+        submissionsRecord[key] = submission;
+      });
+      
+      setPartSubmissions(submissionsRecord);
+    } catch (err) {
+      console.error('Error fetching part submissions:', err);
+      // Don't set error state here to avoid blocking the main UI
+    }
+  };
 
   const fetchStudentDetails = async (name: string) => {
     try {
@@ -30,7 +72,10 @@ const StudentDetailPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`${API_ENDPOINT}progress/${encodeURIComponent(name)}`, {
+      // Fix the URL by ensuring no double slashes
+      const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/progress/${encodeURIComponent(name)}`;
+      
+      const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
@@ -66,7 +111,10 @@ const StudentDetailPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`${API_ENDPOINT}progress/${encodeURIComponent(student.name)}`, {
+      // Fix the URL by ensuring no double slashes
+      const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/progress/${encodeURIComponent(student.name)}`;
+      
+      const response = await fetch(apiUrl, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${idToken}`,
@@ -118,7 +166,10 @@ const StudentDetailPage: React.FC = () => {
       const checkoffType = 'in-lab'; // Default to in-lab checkoff
       const newStatus = !currentStatus;
       
-      const response = await fetch(`${API_ENDPOINT}progress/${encodeURIComponent(student.name)}`, {
+      // Fix the URL by ensuring no double slashes
+      const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/progress/${encodeURIComponent(student.name)}`;
+      
+      const response = await fetch(apiUrl, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${idToken}`,
@@ -395,18 +446,72 @@ const StudentDetailPage: React.FC = () => {
                                 <span className="text-gray-600">Not completed</span>
                               )}
                             </div>
-                            {part.videoUrl && (
-                              <div className="mt-1">
-                                <a 
-                                  href={part.videoUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="text-blue-600 hover:text-blue-900 text-sm"
-                                >
-                                  View Video Submission
-                                </a>
-                              </div>
-                            )}
+                            
+                            {/* Show video submission status if available */}
+                            {(() => {
+                              const submissionKey = `${lab.labId}#${part.partId}`;
+                              const submission = partSubmissions[submissionKey];
+                              
+                              if (submission) {
+                                return (
+                                  <div className="mt-2">
+                                    <div className="flex items-center">
+                                      <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                                        submission.status === 'pending' ? 'bg-yellow-500' :
+                                        submission.status === 'approved' ? 'bg-green-500' :
+                                        'bg-red-500'
+                                      }`}></span>
+                                      <span className="text-sm">
+                                        Video submission {submission.status}
+                                        {submission.submittedAt && (
+                                          <span className="ml-1 text-gray-500">
+                                            ({new Date(submission.submittedAt).toLocaleDateString()})
+                                          </span>
+                                        )}
+                                      </span>
+                                    </div>
+                                    
+                                    {submission.videoUrl && (
+                                      <div className="mt-1">
+                                        <a
+                                          href={submission.videoUrl}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="text-blue-600 hover:text-blue-900 text-sm flex items-center"
+                                        >
+                                          <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                          </svg>
+                                          View Video Submission
+                                        </a>
+                                      </div>
+                                    )}
+                                    
+                                    {submission.feedback && (
+                                      <div className="mt-1 text-sm italic text-gray-600">
+                                        "{submission.feedback}"
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              } else if (part.videoUrl) {
+                                return (
+                                  <div className="mt-1">
+                                    <a
+                                      href={part.videoUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-blue-600 hover:text-blue-900 text-sm"
+                                    >
+                                      View Video Submission
+                                    </a>
+                                  </div>
+                                );
+                              }
+                              
+                              return null;
+                            })()}
                           </div>
                           
                           <div className="mt-2 md:mt-0">

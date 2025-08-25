@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { 
+import {
   CognitoIdentityProviderClient,
   InitiateAuthCommand,
   SignUpCommand,
@@ -8,7 +8,10 @@ import {
   GetUserCommand,
   AdminGetUserCommand,
   AdminGetUserCommandOutput,
-  AttributeType
+  AttributeType,
+  ForgotPasswordCommand,
+  ConfirmForgotPasswordCommand,
+  ResendConfirmationCodeCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import { User, AuthState } from '../types';
 import { cognitoClient, USER_POOL_ID, USER_POOL_CLIENT_ID } from '../aws-config';
@@ -21,6 +24,9 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   signUp: (email: string, password: string) => Promise<void>;
   confirmSignUp: (email: string, code: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  confirmForgotPassword: (email: string, code: string, newPassword: string) => Promise<void>;
+  resendVerificationCode: (email: string) => Promise<void>;
 }
 
 const initialAuthState: AuthState = {
@@ -259,6 +265,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      const command = new ForgotPasswordCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        Username: email
+      });
+      
+      await cognitoClient.send(command);
+      
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    } catch (error) {
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: (error as Error).message
+      }));
+      throw error;
+    }
+  };
+
+  const confirmForgotPassword = async (email: string, code: string, newPassword: string) => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      const command = new ConfirmForgotPasswordCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        Username: email,
+        ConfirmationCode: code,
+        Password: newPassword
+      });
+      
+      await cognitoClient.send(command);
+      
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    } catch (error) {
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: (error as Error).message
+      }));
+      throw error;
+    }
+  };
+
+  const resendVerificationCode = async (email: string) => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+      
+      const command = new ResendConfirmationCodeCommand({
+        ClientId: USER_POOL_CLIENT_ID,
+        Username: email
+      });
+      
+      await cognitoClient.send(command);
+      
+      setAuthState(prev => ({ ...prev, isLoading: false }));
+    } catch (error) {
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: (error as Error).message
+      }));
+      throw error;
+    }
+  };
+
   const value = {
     authState,
     viewAsStudent,
@@ -266,7 +340,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     signIn,
     signOut,
     signUp,
-    confirmSignUp
+    confirmSignUp,
+    forgotPassword,
+    confirmForgotPassword,
+    resendVerificationCode
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

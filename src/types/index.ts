@@ -83,6 +83,36 @@ export interface Submission {
   updatedAt: string;
 }
 
+// Part submission types for lab checkoffs
+export interface PartSubmission {
+  submissionId: string;
+  labId: string;
+  partId: string;
+  studentId: string;
+  userId: string;
+  username: string;
+  fileKey: string;
+  videoUrl?: string;
+  notes: string;
+  status: 'pending' | 'approved' | 'rejected';
+  feedback?: string;
+  submittedAt: string;
+  updatedAt: string;
+  reviewedBy?: string;
+  reviewedAt?: string;
+  queuePosition?: number;
+}
+
+// Lab part definition
+export interface LabPart {
+  partId: string;
+  title: string;
+  description: string;
+  order: number;
+  requiresCheckoff: boolean;
+  checkoffType: 'in-lab' | 'video' | 'none';
+}
+
 export interface UploadProgress {
   fileName: string;
   progress: number;
@@ -118,10 +148,14 @@ export interface StudentDetail extends Student {
     grade: number | null;
     parts: {
       partId: string;
+      title?: string;
+      description?: string;
       completed: boolean;
       completedAt?: string;
       checkoffType: 'in-lab' | 'video' | 'pending';
       videoUrl?: string;
+      submissionId?: string;
+      submissionStatus?: 'pending' | 'approved' | 'rejected';
     }[];
   }[];
 }
@@ -133,4 +167,23 @@ export interface CheckoffUpdate {
   completed?: boolean;
   grade?: number | null;
   checkoffType?: 'in-lab' | 'video' | 'pending';
+  submissionId?: string;
+  feedback?: string;
+}
+
+// Queue types for staff review
+export interface SubmissionQueue {
+  items: PartSubmission[];
+  totalCount: number;
+  pendingCount: number;
+}
+
+// Filter options for the queue
+export interface QueueFilters {
+  status?: 'pending' | 'approved' | 'rejected' | 'all';
+  labId?: string;
+  partId?: string;
+  studentId?: string;
+  sortBy?: 'submittedAt' | 'updatedAt';
+  sortDirection?: 'asc' | 'desc';
 }

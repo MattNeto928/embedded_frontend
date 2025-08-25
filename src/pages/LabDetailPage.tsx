@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Lab, LabStatus } from '../types';
+import { Lab, LabStatus, LabPart, PartSubmission } from '../types';
 import { API_ENDPOINT } from '../aws-config';
 import ReactMarkdown from 'react-markdown';
 import StructuredLabContent from '../components/labs/content/StructuredLabContent';
+import EnhancedLabContent from '../components/labs/content/EnhancedLabContent';
+import LabPartStatusSummary from '../components/labs/LabPartStatusSummary';
 
 const LabDetailPage: React.FC = () => {
   const { labId } = useParams<{ labId: string }>();
@@ -14,6 +16,8 @@ const LabDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const isStudent = authState.user?.role === 'student';
+  const [labParts, setLabParts] = useState<LabPart[]>([]);
+  const [partSubmissions, setPartSubmissions] = useState<Record<string, PartSubmission>>({});
 
   const fetchLabDetails = useCallback(async () => {
     try {
@@ -130,7 +134,7 @@ const LabDetailPage: React.FC = () => {
   // Only render the lab content if lab is not null
   if (lab) {
     return (
-      <div className="max-w-5xl mx-auto p-6">
+      <div className="max-w-7xl mx-auto p-6">
         <div className="mb-6">
           <button
             onClick={() => navigate('/labs')}
@@ -171,22 +175,44 @@ const LabDetailPage: React.FC = () => {
         </div>
         
         
-        {lab.structuredContent ? (
-          // Render structured content if available
-          <StructuredLabContent content={lab.structuredContent} />
-        ) : lab.content ? (
-          // Fall back to traditional markdown content
-          <div className="bg-white shadow-md rounded-lg overflow-hidden">
-            <div className="p-6 max-w-none markdown-content">
-              <ReactMarkdown>{lab.content}</ReactMarkdown>
-            </div>
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Left sidebar for lab part status */}
+          <div className="lg:col-span-1">
+            {lab.structuredContent && (
+              <LabPartStatusSummary
+                labId={lab.labId}
+                labTitle={lab.title}
+                labParts={labParts}
+                partSubmissions={partSubmissions}
+              />
+            )}
           </div>
-        ) : (
-          // Show a message if no content is available
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
-            <p className="text-yellow-700">No content available for this lab.</p>
+          
+          {/* Main content area */}
+          <div className="lg:col-span-3">
+            {lab.structuredContent ? (
+              // Render enhanced structured content with video upload functionality
+              <EnhancedLabContent
+                content={lab.structuredContent}
+                labId={lab.labId}
+                onLabPartsUpdate={(parts) => setLabParts(parts)}
+                onPartSubmissionsUpdate={(submissions) => setPartSubmissions(submissions)}
+              />
+            ) : lab.content ? (
+              // Fall back to traditional markdown content
+              <div className="bg-white shadow-md rounded-lg overflow-hidden">
+                <div className="p-6 max-w-none markdown-content">
+                  <ReactMarkdown>{lab.content}</ReactMarkdown>
+                </div>
+              </div>
+            ) : (
+              // Show a message if no content is available
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 text-center">
+                <p className="text-yellow-700">No content available for this lab.</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     );
   }

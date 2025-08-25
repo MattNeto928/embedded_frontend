@@ -3,7 +3,12 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'rea
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
-import { SignInForm, SignUpForm } from './components/auth/AuthForms';
+import {
+  SignInForm,
+  SignUpForm,
+  ForgotPasswordForm,
+  ResendVerificationForm
+} from './components/auth/AuthForms';
 import { API_ENDPOINT } from './aws-config';
 
 // Import pages
@@ -13,6 +18,7 @@ import LabDetailPage from './pages/LabDetailPage';
 import LabContentEditorPage from './pages/LabContentEditorPage';
 import PeoplePage from './pages/PeoplePage';
 import StudentDetailPage from './pages/StudentDetailPage';
+import CheckoffQueuePage from './pages/CheckoffQueuePage';
 
 // Protected route component
 interface ProtectedRouteProps {
@@ -52,7 +58,6 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 
 // Create placeholder pages
 const CourseMaterialsPage = () => <PlaceholderPage title="Course Materials" />;
-const CheckOffsPage = () => <PlaceholderPage title="Check Offs" />;
 const NotFoundPage = () => <PlaceholderPage title="404 - Page Not Found" />;
 
 const AppRoutes = () => {
@@ -61,6 +66,8 @@ const AppRoutes = () => {
       <Route path="/" element={<HomePage />} />
       <Route path="/signin" element={<SignInForm />} />
       <Route path="/signup" element={<SignUpForm />} />
+      <Route path="/forgot-password" element={<ForgotPasswordForm />} />
+      <Route path="/resend-verification" element={<ResendVerificationForm />} />
       <Route 
         path="/course" 
         element={<ProtectedRoute element={<CourseMaterialsPage />} />} 
@@ -87,7 +94,7 @@ const AppRoutes = () => {
       />
       <Route
         path="/checkoffs"
-        element={<ProtectedRoute element={<CheckOffsPage />} allowedRoles={['staff']} />}
+        element={<ProtectedRoute element={<CheckoffQueuePage />} allowedRoles={['staff']} />}
       />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>
