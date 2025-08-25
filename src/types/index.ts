@@ -89,3 +89,48 @@ export interface UploadProgress {
   status: 'idle' | 'uploading' | 'success' | 'error';
   error?: string;
 }
+
+// Student types
+export interface Student {
+  name: string;
+  section: string;
+  hasAccount: boolean;
+  progressSummary?: {
+    completedLabs: number;
+    totalLabs: number;
+    overallProgress: number;
+    labSummary: {
+      labId: string;
+      title: string;
+      status: string;
+      completed: boolean;
+      grade: number | null;
+    }[];
+  };
+}
+
+export interface StudentDetail extends Student {
+  progress: {
+    labId: string;
+    title: string;
+    status: 'locked' | 'unlocked';
+    completed: boolean;
+    grade: number | null;
+    parts: {
+      partId: string;
+      completed: boolean;
+      completedAt?: string;
+      checkoffType: 'in-lab' | 'video' | 'pending';
+      videoUrl?: string;
+    }[];
+  }[];
+}
+
+export interface CheckoffUpdate {
+  labId: string;
+  partId?: string;
+  status?: 'locked' | 'unlocked';
+  completed?: boolean;
+  grade?: number | null;
+  checkoffType?: 'in-lab' | 'video' | 'pending';
+}

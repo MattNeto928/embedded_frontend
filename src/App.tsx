@@ -11,6 +11,8 @@ import HomePage from './pages/HomePage';
 import LabsPage from './pages/LabsPage';
 import LabDetailPage from './pages/LabDetailPage';
 import LabContentEditorPage from './pages/LabContentEditorPage';
+import PeoplePage from './pages/PeoplePage';
+import StudentDetailPage from './pages/StudentDetailPage';
 
 // Protected route component
 interface ProtectedRouteProps {
@@ -50,7 +52,7 @@ const PlaceholderPage: React.FC<{ title: string }> = ({ title }) => (
 
 // Create placeholder pages
 const CourseMaterialsPage = () => <PlaceholderPage title="Course Materials" />;
-const AdminPage = () => <PlaceholderPage title="Admin Dashboard" />;
+const CheckOffsPage = () => <PlaceholderPage title="Check Offs" />;
 const NotFoundPage = () => <PlaceholderPage title="404 - Page Not Found" />;
 
 const AppRoutes = () => {
@@ -76,8 +78,16 @@ const AppRoutes = () => {
         element={<ProtectedRoute element={<LabContentEditorPage />} allowedRoles={['staff']} />}
       />
       <Route
-        path="/admin"
-        element={<ProtectedRoute element={<AdminPage />} allowedRoles={['staff']} />}
+        path="/people"
+        element={<ProtectedRoute element={<PeoplePage />} allowedRoles={['staff']} />}
+      />
+      <Route
+        path="/people/:studentName"
+        element={<ProtectedRoute element={<StudentDetailPage />} allowedRoles={['staff']} />}
+      />
+      <Route
+        path="/checkoffs"
+        element={<ProtectedRoute element={<CheckOffsPage />} allowedRoles={['staff']} />}
       />
       <Route path="*" element={<NotFoundPage />} />
     </Routes>

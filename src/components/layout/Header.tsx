@@ -38,11 +38,18 @@ const Header: React.FC = () => {
                   </Link>
                 </li>
                 {user?.role === 'staff' && !viewAsStudent && (
-                  <li>
-                    <Link to="/admin" className="hover:text-primary-200">
-                      Admin
-                    </Link>
-                  </li>
+                  <>
+                    <li>
+                      <Link to="/people" className="hover:text-primary-200">
+                        People
+                      </Link>
+                    </li>
+                    <li>
+                      <Link to="/checkoffs" className="hover:text-primary-200">
+                        Check Offs
+                      </Link>
+                    </li>
+                  </>
                 )}
                 <li>
                   <div className="flex items-center">
