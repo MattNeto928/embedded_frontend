@@ -185,6 +185,16 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
   const renderSubmissionStatus = (partId: string) => {
     const submission = partSubmissions[partId];
     
+    // For lab0, show a special message indicating in-lab checkoff
+    if (labId === 'lab0' && !submission) {
+      return (
+        <div className="bg-blue-100 border-l-4 border-blue-400 text-blue-700 p-4 rounded-md mb-4">
+          <p className="font-medium">Checkoff received in lab</p>
+          <p className="text-sm">This part requires an in-person checkoff from a TA or instructor</p>
+        </div>
+      );
+    }
+    
     if (!submission) {
       return null;
     }
@@ -247,35 +257,25 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
                       className="border border-gray-200 rounded-lg p-4 mt-4"
                     >
                       <h3 className="text-lg font-semibold mb-2">
-                        {labId === 'lab0' ? `Complete ${part.title}` : `Submit Video for ${part.title}`}
+                        {labId === 'lab0' ? `Lab Checkoff for ${part.title}` : `Submit Video for ${part.title}`}
                       </h3>
                       
                       {/* Show submission status if available */}
                       {renderSubmissionStatus(part.partId)}
                       
-                      {/* Only show uploader if not approved */}
+                      {/* Only show uploader if not approved and not lab0 */}
                       {(!partSubmissions[part.partId] ||
-                        partSubmissions[part.partId].status !== 'approved') && (
+                        partSubmissions[part.partId].status !== 'approved') &&
+                        labId !== 'lab0' && (
                         <>
-                          {labId === 'lab0' ? (
-                            <SelfCheckoffUploader
-                              labId={labId}
-                              partId={part.partId}
-                              partTitle={part.title}
-                              onCheckoffComplete={(submissionId) =>
-                                handleSelfCheckoffComplete(part.partId, submissionId)
-                              }
-                            />
-                          ) : (
-                            <VideoPartUploader
-                              labId={labId}
-                              partId={part.partId}
-                              partTitle={part.title}
-                              onUploadComplete={(submissionId, fileKey) =>
-                                handleUploadComplete(part.partId, submissionId, fileKey)
-                              }
-                            />
-                          )}
+                          <VideoPartUploader
+                            labId={labId}
+                            partId={part.partId}
+                            partTitle={part.title}
+                            onUploadComplete={(submissionId, fileKey) =>
+                              handleUploadComplete(part.partId, submissionId, fileKey)
+                            }
+                          />
                         </>
                       )}
                     </div>

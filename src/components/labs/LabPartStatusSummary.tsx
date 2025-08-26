@@ -32,6 +32,17 @@ const LabPartStatusSummary: React.FC<LabPartStatusSummaryProps> = ({
     const submission = partSubmissions[partId];
     
     if (!submission) {
+      // For lab0, show a special status indicating in-lab checkoff
+      if (labId === 'lab0') {
+        return {
+          text: 'Checkoff in lab',
+          color: 'blue',
+          bgColor: 'bg-blue-100',
+          textColor: 'text-blue-700',
+          borderColor: 'border-blue-300'
+        };
+      }
+      
       return {
         text: 'Not submitted',
         color: 'gray',
