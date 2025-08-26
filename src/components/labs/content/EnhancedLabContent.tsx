@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { LabContent, LabPart, PartSubmission } from '../../../types';
 import LabSection from './LabSection';
 import VideoPartUploader from '../../submissions/VideoPartUploader';
+import SelfCheckoffUploader from '../../submissions/SelfCheckoffUploader';
 import { API_ENDPOINT } from '../../../aws-config';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -30,14 +31,14 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
   }, [content.sections]);
   
   // Extract lab parts from the content
-  useEffect(() => {
-    // Look for sections with type 'instructions' that might contain parts
-    const instructionSections = sortedSections.filter(
-      section => section.type === 'instructions'
-    );
-    
-    // Extract parts from section titles
-    const extractedParts: LabPart[] = instructionSections.map((section, index) => {
+  // Look for sections with type 'instructions' that might contain parts
+  const instructionSections = useMemo(() => {
+    return sortedSections.filter(section => section.type === 'instructions');
+  }, [sortedSections]);
+  
+  // Extract parts from section titles
+  const extractedParts = useMemo(() => {
+    return instructionSections.map((section, index) => {
       // Try to extract part number and title from section title
       // Example: "Part 1: Digital Output" -> { partId: "part1", title: "Digital Output" }
       const partMatch = section.title.match(/Part\s+(\d+):\s*(.*)/i);
@@ -51,7 +52,7 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
             : `Part ${partMatch[1]} of the lab`,
           order: parseInt(partMatch[1]),
           requiresCheckoff: true,
-          checkoffType: 'video'
+          checkoffType: labId === 'lab0' ? 'none' : 'video' as 'video' | 'none' | 'in-lab'
         };
       }
       
@@ -64,17 +65,20 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
           : `Part ${index + 1} of the lab`,
         order: index + 1,
         requiresCheckoff: true,
-        checkoffType: 'video'
+        checkoffType: labId === 'lab0' ? 'none' : 'video' as 'video' | 'none' | 'in-lab'
       };
     });
-    
+  }, [instructionSections]);
+  
+  // Update lab parts when they change
+  useEffect(() => {
     setLabParts(extractedParts);
     
     // Notify parent component about lab parts
     if (onLabPartsUpdate) {
       onLabPartsUpdate(extractedParts);
     }
-  }, [sortedSections, onLabPartsUpdate]); // Include onLabPartsUpdate in dependencies
+  }, [extractedParts, onLabPartsUpdate]);
   
   // Fetch existing submissions for this lab
   useEffect(() => {
@@ -127,13 +131,38 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
     // API_ENDPOINT is missing from the dependency array and could cause issues
   }, [labId, authState.isAuthenticated, onPartSubmissionsUpdate, API_ENDPOINT]);
   
-  const handleUploadComplete = (partId: string, submissionId: string, fileKey: string) => {
+  const handleUploadComplete = (partId: string, submissionId: string, fileKey: string = '') => {
     // Create the updated submission object
     const updatedSubmission = {
       ...partSubmissions[partId],
       submissionId,
       fileKey,
       status: 'pending',
+      submittedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    } as PartSubmission;
+    
+    // Update the local state with the new submission
+    const updatedSubmissions = {
+      ...partSubmissions,
+      [partId]: updatedSubmission
+    };
+    
+    setPartSubmissions(updatedSubmissions);
+    
+    // Notify parent component about part submissions
+    if (onPartSubmissionsUpdate) {
+      onPartSubmissionsUpdate(updatedSubmissions);
+    }
+  };
+  
+  const handleSelfCheckoffComplete = (partId: string, submissionId: string) => {
+    // Create the updated submission object with approved status for self check-offs
+    const updatedSubmission = {
+      ...partSubmissions[partId],
+      submissionId,
+      fileKey: '',
+      status: 'approved', // Auto-approved for self check-offs
       submittedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     } as PartSubmission;
@@ -217,22 +246,37 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
                       id={`lab-part-${part.partId}`}
                       className="border border-gray-200 rounded-lg p-4 mt-4"
                     >
-                      <h3 className="text-lg font-semibold mb-2">Submit Video for {part.title}</h3>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {labId === 'lab0' ? `Complete ${part.title}` : `Submit Video for ${part.title}`}
+                      </h3>
                       
                       {/* Show submission status if available */}
                       {renderSubmissionStatus(part.partId)}
                       
                       {/* Only show uploader if not approved */}
-                      {(!partSubmissions[part.partId] || 
+                      {(!partSubmissions[part.partId] ||
                         partSubmissions[part.partId].status !== 'approved') && (
-                        <VideoPartUploader 
-                          labId={labId}
-                          partId={part.partId}
-                          partTitle={part.title}
-                          onUploadComplete={(submissionId, fileKey) => 
-                            handleUploadComplete(part.partId, submissionId, fileKey)
-                          }
-                        />
+                        <>
+                          {labId === 'lab0' ? (
+                            <SelfCheckoffUploader
+                              labId={labId}
+                              partId={part.partId}
+                              partTitle={part.title}
+                              onCheckoffComplete={(submissionId) =>
+                                handleSelfCheckoffComplete(part.partId, submissionId)
+                              }
+                            />
+                          ) : (
+                            <VideoPartUploader
+                              labId={labId}
+                              partId={part.partId}
+                              partTitle={part.title}
+                              onUploadComplete={(submissionId, fileKey) =>
+                                handleUploadComplete(part.partId, submissionId, fileKey)
+                              }
+                            />
+                          )}
+                        </>
                       )}
                     </div>
                   ))
