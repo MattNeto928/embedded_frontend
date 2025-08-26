@@ -26,8 +26,8 @@ const LabsPage: React.FC = () => {
   const processedLabs = useMemo(() => {
     // Always use the locked property from the backend if available
     return labs.map((lab: Lab & Partial<LabStatus>) => {
-      // If locked is undefined, set default (Lab 1 is unlocked by default)
-      const isLocked = lab.locked !== undefined ? lab.locked : (lab.labId !== 'lab1');
+      // If locked is undefined, set default (Lab 0 is unlocked by default)
+      const isLocked = lab.locked !== undefined ? lab.locked : (lab.labId !== 'lab0');
       
       return {
         ...lab,
@@ -62,7 +62,8 @@ const LabsPage: React.FC = () => {
       }
       
       console.log('Fetching labs from API');
-      const response = await fetch(`${API_ENDPOINT}labs`, {
+      const baseUrl = API_ENDPOINT.endsWith('/') ? API_ENDPOINT : `${API_ENDPOINT}/`;
+      const response = await fetch(`${baseUrl}labs`, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
@@ -83,9 +84,9 @@ const LabsPage: React.FC = () => {
       
       // Ensure each lab has locked and status properties
       const labsWithStatus = data.map((lab: Lab & Partial<LabStatus>) => {
-        // If locked is undefined, set default (Lab 1 is unlocked by default)
+        // If locked is undefined, set default (Lab 0 is unlocked by default)
         if (lab.locked === undefined) {
-          lab.locked = lab.labId === 'lab1' ? false : true;
+          lab.locked = lab.labId === 'lab0' ? false : true;
           console.log(`Setting default locked status for lab ${lab.labId} to ${lab.locked}`);
         } else {
           console.log(`Lab ${lab.labId} already has locked status: ${lab.locked}`);

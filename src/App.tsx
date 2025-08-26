@@ -122,8 +122,9 @@ const LabAccessCheck: React.FC = () => {
         }
         
         // Make a HEAD request to check if the lab is accessible
-        const response = await fetch(`${API_ENDPOINT}labs/${labId}`, {
-          method: 'HEAD',
+        const baseUrl = API_ENDPOINT.endsWith('/') ? API_ENDPOINT : `${API_ENDPOINT}/`;
+        const response = await fetch(`${baseUrl}labs/${labId}`, {
+          method: 'GET',
           headers: {
             'Authorization': `Bearer ${idToken}`
           }

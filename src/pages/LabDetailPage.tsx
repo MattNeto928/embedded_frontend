@@ -30,7 +30,8 @@ const LabDetailPage: React.FC = () => {
         throw new Error('No authentication token found');
       }
       
-      const response = await fetch(`${API_ENDPOINT}labs/${labId}`, {
+      const baseUrl = API_ENDPOINT.endsWith('/') ? API_ENDPOINT : `${API_ENDPOINT}/`;
+      const response = await fetch(`${baseUrl}labs/${labId}`, {
         headers: {
           'Authorization': `Bearer ${idToken}`
         }
