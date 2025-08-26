@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { LabContent, LabPart, PartSubmission } from '../../../types';
 import LabSection from './LabSection';
 import VideoPartUploader from '../../submissions/VideoPartUploader';
@@ -24,8 +24,10 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   
-  // Sort sections by order
-  const sortedSections = [...content.sections].sort((a, b) => a.order - b.order);
+  // Sort sections by order - memoized to prevent recreation on every render
+  const sortedSections = useMemo(() => {
+    return [...content.sections].sort((a, b) => a.order - b.order);
+  }, [content.sections]);
   
   // Extract lab parts from the content
   useEffect(() => {
@@ -76,8 +78,10 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
   
   // Fetch existing submissions for this lab
   useEffect(() => {
+    // Skip the effect if we don't have necessary data
+    if (!labId || !authState.isAuthenticated) return;
+    
     const fetchPartSubmissions = async () => {
-      if (!labId || !authState.isAuthenticated) return;
       
       try {
         const token = localStorage.getItem('idToken');
@@ -120,7 +124,8 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
     };
     
     fetchPartSubmissions();
-  }, [labId, authState.isAuthenticated, onPartSubmissionsUpdate]);
+    // API_ENDPOINT is missing from the dependency array and could cause issues
+  }, [labId, authState.isAuthenticated, onPartSubmissionsUpdate, API_ENDPOINT]);
   
   const handleUploadComplete = (partId: string, submissionId: string, fileKey: string) => {
     // Create the updated submission object

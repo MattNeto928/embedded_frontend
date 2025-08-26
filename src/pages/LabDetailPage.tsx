@@ -18,6 +18,15 @@ const LabDetailPage: React.FC = () => {
   const isStudent = authState.user?.role === 'student';
   const [labParts, setLabParts] = useState<LabPart[]>([]);
   const [partSubmissions, setPartSubmissions] = useState<Record<string, PartSubmission>>({});
+  
+  // Memoize callback functions to prevent infinite render loops
+  const handleLabPartsUpdate = useCallback((parts: LabPart[]) => {
+    setLabParts(parts);
+  }, []);
+  
+  const handlePartSubmissionsUpdate = useCallback((submissions: Record<string, PartSubmission>) => {
+    setPartSubmissions(submissions);
+  }, []);
 
   const fetchLabDetails = useCallback(async () => {
     try {
@@ -196,8 +205,8 @@ const LabDetailPage: React.FC = () => {
               <EnhancedLabContent
                 content={lab.structuredContent}
                 labId={lab.labId}
-                onLabPartsUpdate={(parts) => setLabParts(parts)}
-                onPartSubmissionsUpdate={(submissions) => setPartSubmissions(submissions)}
+                onLabPartsUpdate={handleLabPartsUpdate}
+                onPartSubmissionsUpdate={handlePartSubmissionsUpdate}
               />
             ) : lab.content ? (
               // Fall back to traditional markdown content
