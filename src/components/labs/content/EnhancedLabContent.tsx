@@ -41,7 +41,8 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
     return instructionSections.map((section, index) => {
       // Try to extract part number and title from section title
       // Example: "Part 1: Digital Output" -> { partId: "part1", title: "Digital Output" }
-      const partMatch = section.title.match(/Part\s+(\d+):\s*(.*)/i);
+      // Also handles decimal part numbers like "Part 2.5: Assembly" and different separators like "Part 1 - Title"
+      const partMatch = section.title.match(/Part\s+(\d+(?:\.\d+)?)[\s:-]+\s*(.*)/i);
       
       if (partMatch) {
         return {
@@ -50,7 +51,7 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
           description: typeof section.content === 'string'
             ? section.content.substring(0, 100) + '...'
             : `Part ${partMatch[1]} of the lab`,
-          order: parseInt(partMatch[1]),
+          order: parseFloat(partMatch[1]),
           requiresCheckoff: true,
           checkoffType: labId === 'lab0' ? 'none' : 'video' as 'video' | 'none' | 'in-lab'
         };
@@ -241,14 +242,14 @@ const EnhancedLabContent: React.FC<EnhancedLabContentProps> = ({
             
             {/* Check if this section corresponds to a lab part that needs a video submission */}
             {section.type === 'instructions' && labParts.some(part => 
-              part.title === section.title.replace(/Part\s+\d+:\s*/i, '') || 
-              section.title.includes(`Part ${part.order}`)
+              part.title === section.title.replace(/Part\s+\d+(?:\.\d+)?[\s:-]+\s*/i, '') ||
+              section.title.match(new RegExp(`Part\\s+${part.order}(?:\\s|:|-)`, 'i'))
             ) && (
               <div className="mt-4 mb-8">
                 {labParts
                   .filter(part => 
-                    part.title === section.title.replace(/Part\s+\d+:\s*/i, '') || 
-                    section.title.includes(`Part ${part.order}`)
+                    part.title === section.title.replace(/Part\s+\d+(?:\.\d+)?[\s:-]+\s*/i, '') ||
+                    section.title.match(new RegExp(`Part\\s+${part.order}(?:\\s|:|-)`, 'i'))
                   )
                   .map(part => (
                     <div
