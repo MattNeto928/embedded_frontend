@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import VideoPlayer from '../components/VideoPlayer';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { PartSubmission, QueueFilters } from '../types';
@@ -21,6 +22,18 @@ const CheckoffQueuePage: React.FC = () => {
     totalCount: 0,
     pendingCount: 0
   });
+
+  // Fetch single submission by ID to refresh videoUrl
+  const fetchSubmissionById = async (submissionId: string) => {
+    const token = localStorage.getItem('idToken');
+    if (!token) throw new Error('No authentication token found');
+    const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/part-submissions/${submissionId}`;
+    const response = await fetch(apiUrl, {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error('Failed to fetch submission');
+    return response.json();
+  };
 
   // Check if user is staff
   useEffect(() => {
@@ -75,7 +88,13 @@ const CheckoffQueuePage: React.FC = () => {
         
         // Set the current submission to the first one in the queue
         if (data.items && data.items.length > 0) {
-          setCurrentSubmission(data.items[0]);
+          // Refresh the first item to ensure a fresh video URL
+          try {
+            const refreshed = await fetchSubmissionById(data.items[0].submissionId);
+            setCurrentSubmission(refreshed);
+          } catch {
+            setCurrentSubmission(data.items[0]);
+          }
         } else {
           setCurrentSubmission(null);
         }
@@ -279,7 +298,10 @@ const CheckoffQueuePage: React.FC = () => {
 
   // Select a specific submission from the queue
   const selectSubmission = (submission: PartSubmission) => {
-    setCurrentSubmission(submission);
+    // Refresh on selection to ensure fresh presigned URL
+    fetchSubmissionById(submission.submissionId)
+      .then((refreshed) => setCurrentSubmission(refreshed))
+      .catch(() => setCurrentSubmission(submission));
     setFeedback('');
   };
 
@@ -416,10 +438,9 @@ const CheckoffQueuePage: React.FC = () => {
               </div>
               
               <div className="p-6">
-                <div className="aspect-w-16 aspect-h-9 mb-6">
-                  <video 
-                    src={currentSubmission.videoUrl} 
-                    controls 
+                <div className="mb-6">
+                  <VideoPlayer
+                    videoUrl={currentSubmission.videoUrl}
                     className="rounded-lg w-full h-auto"
                   />
                 </div>
