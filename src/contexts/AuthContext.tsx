@@ -14,7 +14,7 @@ import {
   ResendConfirmationCodeCommand
 } from '@aws-sdk/client-cognito-identity-provider';
 import { User, AuthState } from '../types';
-import { cognitoClient, USER_POOL_ID, USER_POOL_CLIENT_ID } from '../aws-config';
+import { cognitoClient, USER_POOL_ID, USER_POOL_CLIENT_ID, API_ENDPOINT } from '../aws-config';
 
 interface AuthContextType {
   authState: AuthState;
@@ -27,13 +27,16 @@ interface AuthContextType {
   forgotPassword: (email: string) => Promise<void>;
   confirmForgotPassword: (email: string, code: string, newPassword: string) => Promise<void>;
   resendVerificationCode: (email: string) => Promise<void>;
+  updateUserAttributes: (fullName: string) => Promise<void>;
+  hideNameCollectionModal: () => void;
 }
 
 const initialAuthState: AuthState = {
   isAuthenticated: false,
   user: null,
   isLoading: true,
-  error: null
+  error: null,
+  showNameCollectionModal: false
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -81,12 +84,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       
       if (response.Username) {
         const userAttributes = parseUserAttributes(response.UserAttributes || []);
-        
+
         setAuthState({
           isAuthenticated: true,
           user: userAttributes,
           isLoading: false,
-          error: null
+          error: null,
+          showNameCollectionModal: !userAttributes.fullName
         });
       } else {
         throw new Error('Invalid user data');
@@ -101,7 +105,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: false,
         user: null,
         isLoading: false,
-        error: null
+        error: null,
+        showNameCollectionModal: false
       });
     }
   };
@@ -109,13 +114,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const parseUserAttributes = (attributes: AttributeType[]): User => {
     const role = attributes.find(attr => attr.Name === 'custom:role')?.Value || 'student';
     const studentId = attributes.find(attr => attr.Name === 'custom:studentId')?.Value;
-    const username = attributes.find(attr => attr.Name === 'preferred_username')?.Value || 
+    const fullName = attributes.find(attr => attr.Name === 'custom:fullName')?.Value;
+    const username = attributes.find(attr => attr.Name === 'preferred_username')?.Value ||
                     attributes.find(attr => attr.Name === 'email')?.Value || '';
-    
+
     return {
       username,
       role: role as 'student' | 'staff',
-      studentId
+      studentId,
+      fullName
     };
   };
 
@@ -147,12 +154,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         const userResponse = await cognitoClient.send(getUserCommand);
         const userAttributes = parseUserAttributes(userResponse.UserAttributes || []);
-        
+
         setAuthState({
           isAuthenticated: true,
           user: userAttributes,
           isLoading: false,
-          error: null
+          error: null,
+          showNameCollectionModal: !userAttributes.fullName
         });
       } else {
         throw new Error('Login failed');
@@ -191,7 +199,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: false,
         user: null,
         isLoading: false,
-        error: null
+        error: null,
+        showNameCollectionModal: false
       });
     } catch (error) {
       // Even if the API call fails, clear tokens and state
@@ -203,7 +212,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         isAuthenticated: false,
         user: null,
         isLoading: false,
-        error: (error as Error).message
+        error: (error as Error).message,
+        showNameCollectionModal: false
       });
     }
   };
@@ -333,6 +343,55 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUserAttributes = async (fullName: string) => {
+    try {
+      setAuthState(prev => ({ ...prev, isLoading: true, error: null }));
+
+      const idToken = localStorage.getItem('idToken');
+      const accessToken = localStorage.getItem('accessToken');
+      if (!idToken || !accessToken) {
+        throw new Error('No authentication tokens found');
+      }
+
+      const response = await fetch(`${API_ENDPOINT.replace(/\/$/, '')}/auth/update-attributes`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${idToken}`,
+          'X-Access-Token': accessToken
+        },
+        body: JSON.stringify({ fullName })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to update user attributes');
+      }
+
+      // Update the user in the auth state and hide the modal
+      setAuthState(prev => ({
+        ...prev,
+        user: prev.user ? { ...prev.user, fullName } : null,
+        isLoading: false,
+        showNameCollectionModal: false
+      }));
+    } catch (error) {
+      setAuthState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: (error as Error).message
+      }));
+      throw error;
+    }
+  };
+
+  const hideNameCollectionModal = () => {
+    setAuthState(prev => ({
+      ...prev,
+      showNameCollectionModal: false
+    }));
+  };
+
   const value = {
     authState,
     viewAsStudent,
@@ -343,7 +402,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     confirmSignUp,
     forgotPassword,
     confirmForgotPassword,
-    resendVerificationCode
+    resendVerificationCode,
+    updateUserAttributes,
+    hideNameCollectionModal
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

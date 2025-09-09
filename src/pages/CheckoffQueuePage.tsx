@@ -23,6 +23,22 @@ const CheckoffQueuePage: React.FC = () => {
     pendingCount: 0
   });
 
+  // Helper function to format display name
+  const formatDisplayName = (submission: PartSubmission): string => {
+    if (submission.fullName) {
+      return submission.fullName;
+    }
+    return submission.username;
+  };
+
+  // Helper function to get name status indicator
+  const getNameStatusIndicator = (submission: PartSubmission): string => {
+    if (!submission.fullName) {
+      return ' (full name not found)';
+    }
+    return '';
+  };
+
   // Fetch single submission by ID to refresh videoUrl
   const fetchSubmissionById = async (submissionId: string) => {
     const token = localStorage.getItem('idToken');
@@ -396,7 +412,10 @@ const CheckoffQueuePage: React.FC = () => {
                   >
                     <div className="flex justify-between">
                       <div>
-                        <p className="font-medium">{submission.username}</p>
+                        <p className="font-medium">
+                          {formatDisplayName(submission)}
+                          <span className="text-xs text-gray-400">{getNameStatusIndicator(submission)}</span>
+                        </p>
                         <p className="text-sm text-gray-500">
                           Lab {submission.labId.replace('lab', '')}, Part {submission.partId.replace('part', '')}
                         </p>
@@ -427,7 +446,8 @@ const CheckoffQueuePage: React.FC = () => {
             <div className="bg-white shadow-md rounded-lg overflow-hidden">
               <div className="p-6 border-b">
                 <h2 className="text-2xl font-bold mb-1">
-                  {currentSubmission.username}'s Submission
+                  {formatDisplayName(currentSubmission)}'s Submission
+                  <span className="text-sm text-gray-400 font-normal">{getNameStatusIndicator(currentSubmission)}</span>
                 </h2>
                 <p className="text-gray-600">
                   Lab {currentSubmission.labId.replace('lab', '')}, Part {currentSubmission.partId.replace('part', '')}

@@ -23,7 +23,9 @@ const HomePage: React.FC = () => {
       <div className="bg-white rounded-lg shadow-md p-8 mb-8">
         {isAuthenticated ? (
           <div>
-            <h2 className="text-2xl font-bold mb-4">Welcome back, {user?.username}!</h2>
+            <h2 className="text-2xl font-bold mb-4">
+              Welcome back, {user?.fullName || user?.username}!
+            </h2>
             <p className="mb-4">
               You are logged in as a <span className="font-semibold">{user?.role}</span>.
             </p>

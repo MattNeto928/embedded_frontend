@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useParams } from 'rea
 import { AuthProvider } from './contexts/AuthContext';
 import { useAuth } from './contexts/AuthContext';
 import Layout from './components/layout/Layout';
+import NameCollectionModal from './components/NameCollectionModal';
 import {
   SignInForm,
   SignUpForm,
@@ -156,14 +157,28 @@ const LabAccessCheck: React.FC = () => {
   return <LabDetailPage />;
 };
 
-const App: React.FC = () => {
+const AppContent: React.FC = () => {
+  const { authState, hideNameCollectionModal } = useAuth();
+
   return (
-    <AuthProvider>
+    <>
       <Router>
         <Layout>
           <AppRoutes />
         </Layout>
       </Router>
+      <NameCollectionModal
+        isOpen={authState.showNameCollectionModal}
+        onClose={hideNameCollectionModal}
+      />
+    </>
+  );
+};
+
+const App: React.FC = () => {
+  return (
+    <AuthProvider>
+      <AppContent />
     </AuthProvider>
   );
 };

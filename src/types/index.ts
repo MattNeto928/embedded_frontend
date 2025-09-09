@@ -3,6 +3,7 @@ export interface User {
   username: string;
   role: 'student' | 'staff';
   studentId?: string;
+  fullName?: string;
 }
 
 // Authentication types
@@ -11,6 +12,7 @@ export interface AuthState {
   user: User | null;
   isLoading: boolean;
   error: string | null;
+  showNameCollectionModal: boolean;
 }
 
 // Lab types
@@ -91,6 +93,7 @@ export interface PartSubmission {
   studentId: string;
   userId: string;
   username: string;
+  fullName?: string;
   fileKey: string;
   videoUrl?: string;
   notes: string;
