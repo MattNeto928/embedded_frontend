@@ -72,9 +72,12 @@ const CheckoffQueuePage: React.FC = () => {
       
       // Build query string from filters
       const queryParams = new URLSearchParams();
+      if (filters.status) queryParams.append('status', filters.status);
       if (filters.labId) queryParams.append('labId', filters.labId);
       if (filters.partId) queryParams.append('partId', filters.partId);
       if (filters.studentId) queryParams.append('studentId', filters.studentId);
+      if (filters.sortBy) queryParams.append('sortBy', filters.sortBy);
+      if (filters.sortDirection) queryParams.append('sortDirection', filters.sortDirection);
       
       try {
         // Fix the URL by ensuring no double slashes
@@ -130,40 +133,70 @@ const CheckoffQueuePage: React.FC = () => {
   // Fallback function to get all submissions when queue endpoint isn't available
   const fetchAllSubmissions = async (token: string) => {
     try {
+      // Build query parameters for filtering
+      const queryParams = new URLSearchParams();
+      if (filters.status && filters.status !== 'all') {
+        queryParams.append('status', filters.status);
+      }
+      if (filters.sortBy) {
+        queryParams.append('sortBy', filters.sortBy);
+      }
+      if (filters.sortDirection) {
+        queryParams.append('sortDirection', filters.sortDirection);
+      }
+
       // Fix the URL by ensuring no double slashes
-      const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/part-submissions`;
-      
+      const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/part-submissions?${queryParams.toString()}`;
+
       const response = await fetch(apiUrl, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch submissions');
       }
-      
+
       const data = await response.json();
-      
-      // Filter for pending submissions only
-      const pendingSubmissions = data.filter((submission: PartSubmission) =>
+
+      // Apply client-side filtering if needed (backend should handle this, but fallback)
+      let filteredSubmissions = data;
+      if (filters.status && filters.status !== 'all') {
+        filteredSubmissions = data.filter((submission: PartSubmission) =>
+          submission.status === filters.status
+        );
+      }
+
+      // Sort by submission time
+      const sortField = filters.sortBy || 'submittedAt';
+      const sortDirection = filters.sortDirection || 'asc';
+
+      filteredSubmissions.sort((a: PartSubmission, b: PartSubmission) => {
+        const aValue = new Date(a[sortField as keyof PartSubmission] as string).getTime();
+        const bValue = new Date(b[sortField as keyof PartSubmission] as string).getTime();
+
+        if (sortDirection === 'desc') {
+          return bValue - aValue;
+        } else {
+          return aValue - bValue;
+        }
+      });
+
+      // Count pending submissions for stats
+      const pendingCount = data.filter((submission: PartSubmission) =>
         submission.status === 'pending'
-      );
-      
-      // Sort by submission time (oldest first)
-      pendingSubmissions.sort((a: PartSubmission, b: PartSubmission) =>
-        new Date(a.submittedAt).getTime() - new Date(b.submittedAt).getTime()
-      );
-      
-      setQueue(pendingSubmissions);
+      ).length;
+
+      setQueue(filteredSubmissions);
       setStats({
         totalCount: data.length,
-        pendingCount: pendingSubmissions.length
+        pendingCount: pendingCount
       });
-      
+
       // Set the current submission to the first one in the queue
-      if (pendingSubmissions.length > 0) {
-        setCurrentSubmission(pendingSubmissions[0]);
+      if (filteredSubmissions.length > 0) {
+        setCurrentSubmission(filteredSubmissions[0]);
       } else {
         setCurrentSubmission(null);
       }
