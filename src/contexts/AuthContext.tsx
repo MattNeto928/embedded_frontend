@@ -16,6 +16,11 @@ import {
 import { User, AuthState } from '../types';
 import { cognitoClient, USER_POOL_ID, USER_POOL_CLIENT_ID, API_ENDPOINT } from '../aws-config';
 
+// Token expiration times in milliseconds
+const TOKEN_EXPIRATION = 60 * 60 * 1000; // 1 hour in milliseconds
+const REFRESH_THRESHOLD = 10 * 60 * 1000; // Refresh 10 minutes before expiration
+const WEEK_IN_MS = 7 * 24 * 60 * 60 * 1000; // 1 week in milliseconds (7 days)
+
 interface AuthContextType {
   authState: AuthState;
   viewAsStudent: boolean;
@@ -63,6 +68,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     checkAuthState();
+    
+    // Set up token refresh interval
+    const refreshInterval = setInterval(() => {
+      refreshTokenIfNeeded();
+    }, REFRESH_THRESHOLD);
+    
+    return () => clearInterval(refreshInterval);
   }, []);
 
   const checkAuthState = async () => {
@@ -70,36 +82,108 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Get the stored tokens
       const idToken = localStorage.getItem('idToken');
       const accessToken = localStorage.getItem('accessToken');
+      const refreshToken = localStorage.getItem('refreshToken');
+      const lastRefreshTime = localStorage.getItem('lastRefreshTime');
+      const initialSignInTime = localStorage.getItem('initialSignInTime');
+      
+      // Check if session has exceeded the 1-week limit
+      if (initialSignInTime) {
+        const sessionDuration = Date.now() - parseInt(initialSignInTime);
+        if (sessionDuration > WEEK_IN_MS) {
+          console.log('Session exceeded 1-week limit, signing out');
+          await signOut();
+          return;
+        }
+      }
+      
+      // If we have a refresh token but no valid access token, try to refresh
+      if (refreshToken && (!accessToken || !idToken)) {
+        try {
+          const success = await refreshTokens(refreshToken);
+          if (success) {
+            return; // checkAuthState will be called again after token refresh
+          }
+        } catch (refreshError) {
+          console.error('Failed to refresh tokens on startup:', refreshError);
+          // Continue to sign out
+          await signOut();
+          return;
+        }
+      }
       
       if (!idToken || !accessToken) {
         throw new Error('No tokens found');
       }
       
+      // Check if tokens need to be refreshed
+      if (refreshToken && lastRefreshTime) {
+        const timeSinceLastRefresh = Date.now() - parseInt(lastRefreshTime);
+        
+        // If it's been more than TOKEN_EXPIRATION - REFRESH_THRESHOLD since last refresh
+        if (timeSinceLastRefresh > TOKEN_EXPIRATION - REFRESH_THRESHOLD) {
+          // Try to refresh tokens
+          try {
+            await refreshTokens(refreshToken);
+            return; // checkAuthState will be called again after token refresh
+          } catch (refreshError) {
+            console.error('Failed to refresh tokens:', refreshError);
+            // Continue with existing tokens if they're still valid
+          }
+        }
+      }
+      
       // Verify the token by calling the GetUser API
-      const command = new GetUserCommand({
-        AccessToken: accessToken
-      });
-      
-      const response = await cognitoClient.send(command);
-      
-      if (response.Username) {
-        const userAttributes = parseUserAttributes(response.UserAttributes || []);
-
-        setAuthState({
-          isAuthenticated: true,
-          user: userAttributes,
-          isLoading: false,
-          error: null,
-          showNameCollectionModal: !userAttributes.fullName
+      try {
+        const command = new GetUserCommand({
+          AccessToken: accessToken
         });
-      } else {
-        throw new Error('Invalid user data');
+        
+        const response = await cognitoClient.send(command);
+        
+        if (response.Username) {
+          const userAttributes = parseUserAttributes(response.UserAttributes || []);
+  
+          setAuthState({
+            isAuthenticated: true,
+            user: userAttributes,
+            isLoading: false,
+            error: null,
+            showNameCollectionModal: !userAttributes.fullName
+          });
+          
+          // If no lastRefreshTime is set, set it now
+          if (!lastRefreshTime) {
+            localStorage.setItem('lastRefreshTime', Date.now().toString());
+          }
+          
+          // If no initialSignInTime is set, set it now
+          if (!initialSignInTime) {
+            localStorage.setItem('initialSignInTime', Date.now().toString());
+          }
+        } else {
+          throw new Error('Invalid user data');
+        }
+      } catch (error) {
+        // If the access token is invalid but we have a refresh token, try to refresh
+        if (refreshToken) {
+          try {
+            const success = await refreshTokens(refreshToken);
+            if (success) return;
+          } catch (refreshError) {
+            console.error('Failed to refresh tokens after GetUser error:', refreshError);
+          }
+        }
+        
+        // If we get here, we couldn't refresh the tokens, so sign out
+        await signOut();
       }
     } catch (error) {
       // Clear tokens if they're invalid
       localStorage.removeItem('idToken');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('lastRefreshTime');
+      localStorage.removeItem('initialSignInTime');
       
       setAuthState({
         isAuthenticated: false,
@@ -108,6 +192,74 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         error: null,
         showNameCollectionModal: false
       });
+    }
+  };
+  
+  const refreshTokenIfNeeded = async () => {
+    if (!authState.isAuthenticated) return;
+    
+    const lastRefreshTime = localStorage.getItem('lastRefreshTime');
+    const refreshToken = localStorage.getItem('refreshToken');
+    
+    if (!lastRefreshTime || !refreshToken) return;
+    
+    const timeSinceLastRefresh = Date.now() - parseInt(lastRefreshTime);
+    
+    // If it's been more than TOKEN_EXPIRATION - REFRESH_THRESHOLD since last refresh
+    if (timeSinceLastRefresh > TOKEN_EXPIRATION - REFRESH_THRESHOLD) {
+      try {
+        await refreshTokens(refreshToken);
+      } catch (error) {
+        console.error('Failed to refresh tokens:', error);
+        
+        // If refresh fails and tokens are likely expired, sign out
+        if (timeSinceLastRefresh > TOKEN_EXPIRATION) {
+          signOut();
+        }
+      }
+    }
+  };
+  
+  const refreshTokens = async (refreshToken: string) => {
+    try {
+      const command = new InitiateAuthCommand({
+        AuthFlow: 'REFRESH_TOKEN_AUTH',
+        ClientId: USER_POOL_CLIENT_ID,
+        AuthParameters: {
+          REFRESH_TOKEN: refreshToken
+        }
+      });
+      
+      const response = await cognitoClient.send(command);
+      
+      if (response.AuthenticationResult) {
+        // Store new tokens
+        localStorage.setItem('idToken', response.AuthenticationResult.IdToken || '');
+        localStorage.setItem('accessToken', response.AuthenticationResult.AccessToken || '');
+        localStorage.setItem('lastRefreshTime', Date.now().toString());
+        
+        // Get user attributes with new access token
+        const getUserCommand = new GetUserCommand({
+          AccessToken: response.AuthenticationResult.AccessToken
+        });
+        
+        const userResponse = await cognitoClient.send(getUserCommand);
+        const userAttributes = parseUserAttributes(userResponse.UserAttributes || []);
+        
+        setAuthState(prev => ({
+          ...prev,
+          isAuthenticated: true,
+          user: userAttributes,
+          error: null
+        }));
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error refreshing tokens:', error);
+      throw error;
     }
   };
 
@@ -146,6 +298,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         localStorage.setItem('idToken', response.AuthenticationResult.IdToken || '');
         localStorage.setItem('accessToken', response.AuthenticationResult.AccessToken || '');
         localStorage.setItem('refreshToken', response.AuthenticationResult.RefreshToken || '');
+        localStorage.setItem('lastRefreshTime', Date.now().toString());
+        localStorage.setItem('initialSignInTime', Date.now().toString());
         
         // Get user attributes
         const getUserCommand = new GetUserCommand({
@@ -194,6 +348,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem('idToken');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('lastRefreshTime');
+      localStorage.removeItem('initialSignInTime');
       
       setAuthState({
         isAuthenticated: false,
@@ -207,6 +363,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.removeItem('idToken');
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
+      localStorage.removeItem('lastRefreshTime');
+      localStorage.removeItem('initialSignInTime');
       
       setAuthState({
         isAuthenticated: false,
