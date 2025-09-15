@@ -34,13 +34,13 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ labId, onUploadComplete }
         return;
       }
 
-      // Check file size (limit to 100MB)
-      if (selectedFile.size > 100 * 1024 * 1024) {
+      // Check file size (limit to 500MB)
+      if (selectedFile.size > 500 * 1024 * 1024) {
         setUploadProgress({
           fileName: selectedFile.name,
           progress: 0,
           status: 'error',
-          error: 'File size exceeds 100MB limit'
+          error: 'File size exceeds 500MB limit'
         });
         return;
       }
@@ -218,7 +218,7 @@ const VideoUploader: React.FC<VideoUploaderProps> = ({ labId, onUploadComplete }
               disabled={uploadProgress.status === 'uploading'}
             />
             <p className="mt-1 text-xs text-gray-500">
-              Max file size: 100MB. Supported formats: MP4, MOV, AVI, etc.
+              Max file size: 500MB. Supported formats: MP4, MOV, AVI, etc.
             </p>
           </div>
           
