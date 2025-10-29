@@ -216,17 +216,17 @@ const CheckoffQueuePage: React.FC = () => {
   // Handle submission approval
   const handleApprove = async () => {
     if (!currentSubmission) return;
-    
+
     try {
       const token = localStorage.getItem('idToken');
-      
+
       if (!token) {
         throw new Error('No authentication token found');
       }
-      
+
       // Fix the URL by ensuring no double slashes
       const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/part-submissions/${currentSubmission.submissionId}`;
-      
+
       const response = await fetch(apiUrl, {
         method: 'PUT',
         headers: {
@@ -238,29 +238,45 @@ const CheckoffQueuePage: React.FC = () => {
           feedback: feedback.trim() || 'Great job!'
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to approve submission');
       }
-      
-      // Remove the current submission from the queue
-      setQueue(queue.filter(item => item.submissionId !== currentSubmission.submissionId));
-      
-      // Move to the next submission
-      if (queue.length > 1) {
-        const nextIndex = queue.findIndex(item => item.submissionId === currentSubmission.submissionId) + 1;
-        if (nextIndex < queue.length) {
-          setCurrentSubmission(queue[nextIndex]);
+
+      // Find the next submission BEFORE removing the current one from the queue
+      const currentIndex = queue.findIndex(item => item.submissionId === currentSubmission.submissionId);
+      const updatedQueue = queue.filter(item => item.submissionId !== currentSubmission.submissionId);
+
+      // Update the queue state
+      setQueue(updatedQueue);
+
+      // Move to the next submission with fresh video URL
+      if (updatedQueue.length > 0) {
+        // Determine which submission to show next
+        let nextSubmission: PartSubmission;
+        if (currentIndex < updatedQueue.length) {
+          // Show the submission that's now at the current index
+          nextSubmission = updatedQueue[currentIndex];
         } else {
-          setCurrentSubmission(queue[0]);
+          // We were at the end, wrap to the first one
+          nextSubmission = updatedQueue[0];
+        }
+
+        // Fetch fresh video URL for the next submission
+        try {
+          const refreshed = await fetchSubmissionById(nextSubmission.submissionId);
+          setCurrentSubmission(refreshed);
+        } catch {
+          // Fallback to the submission without refresh if fetch fails
+          setCurrentSubmission(nextSubmission);
         }
       } else {
         setCurrentSubmission(null);
       }
-      
+
       // Reset feedback
       setFeedback('');
-      
+
       // Update stats
       setStats(prev => ({
         ...prev,
@@ -275,23 +291,23 @@ const CheckoffQueuePage: React.FC = () => {
   // Handle submission rejection
   const handleReject = async () => {
     if (!currentSubmission) return;
-    
+
     // Require feedback for rejections
     if (!feedback.trim()) {
       setError('Please provide feedback explaining why the submission was rejected');
       return;
     }
-    
+
     try {
       const token = localStorage.getItem('idToken');
-      
+
       if (!token) {
         throw new Error('No authentication token found');
       }
-      
+
       // Fix the URL by ensuring no double slashes
       const apiUrl = `${API_ENDPOINT.replace(/\/$/, '')}/part-submissions/${currentSubmission.submissionId}`;
-      
+
       const response = await fetch(apiUrl, {
         method: 'PUT',
         headers: {
@@ -303,29 +319,45 @@ const CheckoffQueuePage: React.FC = () => {
           feedback
         })
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to reject submission');
       }
-      
-      // Remove the current submission from the queue
-      setQueue(queue.filter(item => item.submissionId !== currentSubmission.submissionId));
-      
-      // Move to the next submission
-      if (queue.length > 1) {
-        const nextIndex = queue.findIndex(item => item.submissionId === currentSubmission.submissionId) + 1;
-        if (nextIndex < queue.length) {
-          setCurrentSubmission(queue[nextIndex]);
+
+      // Find the next submission BEFORE removing the current one from the queue
+      const currentIndex = queue.findIndex(item => item.submissionId === currentSubmission.submissionId);
+      const updatedQueue = queue.filter(item => item.submissionId !== currentSubmission.submissionId);
+
+      // Update the queue state
+      setQueue(updatedQueue);
+
+      // Move to the next submission with fresh video URL
+      if (updatedQueue.length > 0) {
+        // Determine which submission to show next
+        let nextSubmission: PartSubmission;
+        if (currentIndex < updatedQueue.length) {
+          // Show the submission that's now at the current index
+          nextSubmission = updatedQueue[currentIndex];
         } else {
-          setCurrentSubmission(queue[0]);
+          // We were at the end, wrap to the first one
+          nextSubmission = updatedQueue[0];
+        }
+
+        // Fetch fresh video URL for the next submission
+        try {
+          const refreshed = await fetchSubmissionById(nextSubmission.submissionId);
+          setCurrentSubmission(refreshed);
+        } catch {
+          // Fallback to the submission without refresh if fetch fails
+          setCurrentSubmission(nextSubmission);
         }
       } else {
         setCurrentSubmission(null);
       }
-      
+
       // Reset feedback
       setFeedback('');
-      
+
       // Update stats
       setStats(prev => ({
         ...prev,

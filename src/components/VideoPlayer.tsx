@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface VideoPlayerProps {
   videoUrl: string | undefined;
@@ -8,6 +8,11 @@ interface VideoPlayerProps {
 const VideoPlayer: React.FC<VideoPlayerProps> = ({ videoUrl = '', className = '' }) => {
   const [showInfo, setShowInfo] = useState(false);
   const [playError, setPlayError] = useState(false);
+
+  // Reset playError whenever videoUrl changes
+  useEffect(() => {
+    setPlayError(false);
+  }, [videoUrl]);
   
   // Extract filename from URL for display
   const getFilenameFromUrl = (url: string): string => {
